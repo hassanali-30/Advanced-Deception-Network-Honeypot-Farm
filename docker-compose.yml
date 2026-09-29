@@ -1,0 +1,27 @@
+services:
+  deception-farm:
+    build: .
+    container_name: deception-farm
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "2222:2222"
+      - "2121:2121"
+      - "2323:2323"
+    networks:
+      - deception_internal
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.50
+    volumes:
+      - ./logs:/var/log/deception
+
+networks:
+  deception_internal:
+    internal: true
