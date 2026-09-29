@@ -1,0 +1,1 @@
+{"timestamp":"2026-01-01T00:00:00Z","event_type":"honeypot_interaction","service":"ssh","src_ip":"192.0.2.50","src_port":45123,"dst_port":2222,"payload_sha256":"synthetic","payload_length":42,"indicators":["powershell"],"safe_mode":true,"payload_stored":false}
