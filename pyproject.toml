@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "advanced-deception-network-honeypot-farm"
+version = "1.0.0"
+description = "Isolated defensive honeypot farm with safe interaction telemetry"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8,<9"]
+
+[project.scripts]
+deception-farm = "deception_farm:main"
