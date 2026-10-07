@@ -1,6 +1,6 @@
 import hashlib
 
-from deception_farm import extract_indicators, payload_metadata, valid_peer_ip
+from deception_farm import extract_indicators, http_response, payload_metadata, valid_peer_ip
 
 
 def test_payload_is_hashed_not_stored():
@@ -21,3 +21,12 @@ def test_indicators_are_bounded():
 def test_peer_validation():
     assert valid_peer_ip("192.0.2.10") == "192.0.2.10"
     assert valid_peer_ip("not-an-ip") == "unknown"
+
+
+def test_http_response_content_length_matches_body():
+    headers, body = http_response().split(b"\r\n\r\n", 1)
+    length_header = next(
+        line for line in headers.split(b"\r\n")
+        if line.lower().startswith(b"content-length:")
+    )
+    assert int(length_header.split(b":", 1)[1]) == len(body)

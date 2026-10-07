@@ -45,6 +45,20 @@ def extract_indicators(payload: bytes) -> list[str]:
     return findings[:20]
 
 
+
+HTTP_BODY = b"<html><title>Maintenance</title><body>Service maintenance</body></html>"
+
+
+def http_response() -> bytes:
+    """Build a complete response with a byte-accurate Content-Length."""
+    headers = (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Type: text/html; charset=utf-8\r\n"
+        + f"Content-Length: {len(HTTP_BODY)}\r\n".encode("ascii")
+        + b"Connection: close\r\n\r\n"
+    )
+    return headers + HTTP_BODY
+
 def payload_metadata(payload: bytes) -> dict[str, Any]:
     return {
         "payload_sha256": hashlib.sha256(payload).hexdigest(),
@@ -110,12 +124,7 @@ class DeceptionFarm:
                 service, source_ip, source_port, destination_port, payload, opened_at
             )
             if service == "http":
-                response = (
-                    b"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n"
-                    b"Content-Length: 75\r\nConnection: close\r\n\r\n"
-                    b"<html><title>Maintenance</title><body>Service maintenance</body></html>"
-                )
-                writer.write(response)
+                writer.write(http_response())
                 await writer.drain()
         except (asyncio.TimeoutError, ConnectionError, BrokenPipeError):
             await self.log_interaction(
