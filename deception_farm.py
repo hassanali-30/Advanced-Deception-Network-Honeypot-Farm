@@ -115,6 +115,7 @@ class DeceptionFarm:
         destination_port = int(SERVICE_CONFIG[service]["port"])
         opened_at = time.time()
         payload = b""
+        logged = False
         try:
             if service != "http":
                 writer.write(SERVICE_CONFIG[service]["banner"].encode())
@@ -123,14 +124,16 @@ class DeceptionFarm:
             await self.log_interaction(
                 service, source_ip, source_port, destination_port, payload, opened_at
             )
+            logged = True
             if service == "http":
                 writer.write(http_response())
                 await writer.drain()
         except (asyncio.TimeoutError, ConnectionError, BrokenPipeError):
-            await self.log_interaction(
-                service, source_ip, source_port, destination_port, payload, opened_at,
-                outcome="timeout-or-disconnect",
-            )
+            if not logged:
+                await self.log_interaction(
+                    service, source_ip, source_port, destination_port, payload, opened_at,
+                    outcome="timeout-or-disconnect",
+                )
         finally:
             writer.close()
             try:

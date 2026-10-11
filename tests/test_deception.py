@@ -1,6 +1,14 @@
+import asyncio
 import hashlib
+from unittest.mock import AsyncMock
 
-from deception_farm import extract_indicators, http_response, payload_metadata, valid_peer_ip
+from deception_farm import (
+    DeceptionFarm,
+    extract_indicators,
+    http_response,
+    payload_metadata,
+    valid_peer_ip,
+)
 
 
 def test_payload_is_hashed_not_stored():
@@ -30,3 +38,31 @@ def test_http_response_content_length_matches_body():
         if line.lower().startswith(b"content-length:")
     )
     assert int(length_header.split(b":", 1)[1]) == len(body)
+
+
+def test_http_disconnect_after_logging_does_not_duplicate_event(tmp_path):
+    class Reader:
+        async def read(self, _limit):
+            return b"GET / HTTP/1.1\r\n\r\n"
+
+    class Writer:
+        def get_extra_info(self, _name):
+            return ("192.0.2.10", 49152)
+
+        def write(self, _data):
+            pass
+
+        async def drain(self):
+            raise BrokenPipeError
+
+        def close(self):
+            pass
+
+        async def wait_closed(self):
+            pass
+
+    farm = DeceptionFarm("127.0.0.1", str(tmp_path / "events.jsonl"))
+    farm.log_interaction = AsyncMock()
+    asyncio.run(farm.handle("http", Reader(), Writer()))
+
+    assert farm.log_interaction.await_count == 1
