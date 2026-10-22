@@ -30,6 +30,8 @@ INDICATOR_RE = re.compile(
     r"\b(?:\d{1,3}\.){3}\d{1,3}\b|powershell|cmd\.exe|"
     r"wget|curl|bash|nc\s|netcat|chmod|/etc/passwd)"
 )
+INITIAL_READ_TIMEOUT = 3.0
+FOLLOWUP_READ_TIMEOUT = 0.1
 
 
 def extract_indicators(payload: bytes) -> list[str]:
@@ -72,6 +74,33 @@ def valid_peer_ip(value: str) -> str:
         return str(ipaddress.ip_address(value))
     except ValueError:
         return "unknown"
+
+
+async def read_payload(
+    reader: asyncio.StreamReader,
+    max_payload: int,
+    initial_timeout: float = INITIAL_READ_TIMEOUT,
+    followup_timeout: float = FOLLOWUP_READ_TIMEOUT,
+) -> bytes:
+    """Collect bounded TCP fragments until EOF, the limit, or an idle gap."""
+    if max_payload < 1:
+        raise ValueError("max_payload must be positive")
+    payload = bytearray()
+    timeout = initial_timeout
+    while len(payload) < max_payload:
+        try:
+            chunk = await asyncio.wait_for(
+                reader.read(max_payload - len(payload)), timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            if payload:
+                break
+            raise
+        if not chunk:
+            break
+        payload.extend(chunk)
+        timeout = followup_timeout
+    return bytes(payload)
 
 
 class EventLogger:
@@ -120,7 +149,7 @@ class DeceptionFarm:
             if service != "http":
                 writer.write(SERVICE_CONFIG[service]["banner"].encode())
                 await writer.drain()
-            payload = await asyncio.wait_for(reader.read(self.max_payload), timeout=3)
+            payload = await read_payload(reader, self.max_payload)
             await self.log_interaction(
                 service, source_ip, source_port, destination_port, payload, opened_at
             )

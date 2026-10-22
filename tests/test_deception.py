@@ -2,11 +2,14 @@ import asyncio
 import hashlib
 from unittest.mock import AsyncMock
 
+import pytest
+
 from deception_farm import (
     DeceptionFarm,
     extract_indicators,
     http_response,
     payload_metadata,
+    read_payload,
     valid_peer_ip,
 )
 
@@ -66,3 +69,28 @@ def test_http_disconnect_after_logging_does_not_duplicate_event(tmp_path):
     asyncio.run(farm.handle("http", Reader(), Writer()))
 
     assert farm.log_interaction.await_count == 1
+
+
+def test_fragmented_payload_is_collected_before_analysis():
+    class FragmentedReader:
+        def __init__(self):
+            self.chunks = iter([
+                b"GET /?source=http://exa",
+                b"mple.test HTTP/1.1\r\n\r\n",
+                b"",
+            ])
+
+        async def read(self, _limit):
+            return next(self.chunks)
+
+    payload = asyncio.run(read_payload(FragmentedReader(), 512))
+    assert payload_metadata(payload)["indicators"] == ["http://example.test"]
+
+
+def test_payload_reader_rejects_non_positive_limit():
+    class UnusedReader:
+        async def read(self, _limit):
+            raise AssertionError("reader should not be called")
+
+    with pytest.raises(ValueError, match="max_payload must be positive"):
+        asyncio.run(read_payload(UnusedReader(), 0))
